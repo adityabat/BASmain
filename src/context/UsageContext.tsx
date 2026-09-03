@@ -1,0 +1,140 @@
+import { createContext, useContext, useCallback, useEffect, useState } from 'react'
+import { supabase } from '../supabase'
+import { useAuth } from './AuthContext'
+
+export const FREE_UPLOAD_LIMIT = 5
+export const FREE_TRANSCRIPT_LIMIT = 3
+
+export type Plan = 'free' | 'pro'
+
+interface UsageContextValue {
+  plan: Plan
+  uploadCount: number
+  transcriptCount: number
+  uploadLimit: number
+  transcriptLimit: number
+  isUploadLimitReached: boolean
+  isTranscriptLimitReached: boolean
+  refreshUsage: () => void
+}
+
+const UsageContext = createContext<UsageContextValue>({
+  plan: 'free',
+  uploadCount: 0,
+  transcriptCount: 0,
+  uploadLimit: FREE_UPLOAD_LIMIT,
+  transcriptLimit: FREE_TRANSCRIPT_LIMIT,
+  isUploadLimitReached: false,
+  isTranscriptLimitReached: false,
+  refreshUsage: () => {},
+})
+
+export function UsageProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth()
+  const [plan, setPlan] = useState<Plan>('free')
+  const [uploadCount, setUploadCount] = useState(0)
+  const [transcriptCount, setTranscriptCount] = useState(0)
+
+  const fetchUsage = useCallback(async (userId: string) => {
+    const [planResult, uploadsResult, transcriptsResult] = await Promise.all([
+      supabase
+        .from('user_plans')
+        .select('plan')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase
+        .from('upload_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+      supabase
+        .from('transcript_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+    ])
+
+    if (planResult.data) {
+      setPlan(planResult.data.plan as Plan)
+    } else {
+      // First sign-in — provision a free plan row
+      await supabase.from('user_plans').insert({ user_id: userId, plan: 'free' })
+      setPlan('free')
+    }
+
+    setUploadCount(uploadsResult.count ?? 0)
+    setTranscriptCount(transcriptsResult.count ?? 0)
+  }, [])
+
+  const refreshUsage = useCallback(() => {
+    if (session?.user.id) fetchUsage(session.user.id)
+  }, [session?.user.id, fetchUsage])
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      setPlan('free')
+      setUploadCount(0)
+      setTranscriptCount(0)
+      return
+    }
+
+    const userId = session.user.id
+    const params = new URLSearchParams(window.location.search)
+
+    if (params.get('upgrade') === 'success') {
+      // Remove the param from the URL without a page reload
+      const clean = window.location.pathname + window.location.search.replace(/[?&]upgrade=success/, '').replace(/^&/, '?')
+      window.history.replaceState(null, '', clean || window.location.pathname)
+
+      // Poll until the webhook has written the pro plan (up to ~8s)
+      let attempts = 0
+      const poll = async () => {
+        const { data } = await supabase
+          .from('user_plans')
+          .select('plan')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (data?.plan === 'pro') {
+          fetchUsage(userId)
+        } else if (attempts < 8) {
+          attempts++
+          setTimeout(poll, 1000)
+        } else {
+          fetchUsage(userId)
+        }
+      }
+      poll()
+    } else {
+      fetchUsage(userId)
+    }
+  }, [session?.user.id, fetchUsage])
+
+  const uploadLimit = plan === 'pro' ? Infinity : FREE_UPLOAD_LIMIT
+  const transcriptLimit = plan === 'pro' ? Infinity : FREE_TRANSCRIPT_LIMIT
+  const isUploadLimitReached = plan === 'free' && uploadCount >= FREE_UPLOAD_LIMIT
+  const isTranscriptLimitReached = plan === 'free' && transcriptCount >= FREE_TRANSCRIPT_LIMIT
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'free-limit-5',hypothesisId:'A',location:'UsageContext.tsx:limits',message:'free upload limit applied',data:{plan,uploadCount,uploadLimit:uploadLimit===Infinity?'inf':uploadLimit,freeUploadConst:FREE_UPLOAD_LIMIT,isUploadLimitReached,transcriptLimit:transcriptLimit===Infinity?'inf':transcriptLimit},timestamp:Date.now()})}).catch(()=>{});
+  }, [plan, uploadCount, uploadLimit, isUploadLimitReached, transcriptLimit])
+  // #endregion
+
+  return (
+    <UsageContext.Provider value={{
+      plan,
+      uploadCount,
+      transcriptCount,
+      uploadLimit,
+      transcriptLimit,
+      isUploadLimitReached,
+      isTranscriptLimitReached,
+      refreshUsage,
+    }}>
+      {children}
+    </UsageContext.Provider>
+  )
+}
+
+export function useUsage() {
+  return useContext(UsageContext)
+}

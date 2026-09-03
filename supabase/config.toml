@@ -1,0 +1,4 @@
+project_id = "tpxouggkkyljrmmhdlbr"
+
+[functions.stripe-checkout]
+verify_jwt = true
