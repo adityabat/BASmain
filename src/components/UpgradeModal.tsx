@@ -32,9 +32,6 @@ export function UpgradeModal({ type, onClose }: UpgradeModalProps) {
       if (!session) throw new Error('Not authenticated')
 
       const checkoutUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`
-      // #region agent log
-      fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'post-fix',hypothesisId:'A',location:'UpgradeModal.tsx:handleUpgrade',message:'checkout request start',data:{checkoutHost:new URL(checkoutUrl).host,hasSession:!!session,usesEnvUrl:!!import.meta.env.VITE_SUPABASE_URL},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const res = await fetch(
         checkoutUrl,
         {
@@ -51,24 +48,15 @@ export function UpgradeModal({ type, onClose }: UpgradeModalProps) {
       )
 
       const body = await res.json().catch(() => ({}))
-      // #region agent log
-      fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'post-fix',hypothesisId:'B',location:'UpgradeModal.tsx:handleUpgrade',message:'checkout response',data:{status:res.status,ok:res.ok,error:typeof body?.error==='string'?body.error:null,hasUrl:!!body?.url,bodyKeys:Object.keys(body||{})},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (!res.ok) {
         throw new Error(body?.error ?? `Request failed (${res.status})`)
       }
 
       const { url } = body
       if (!url) throw new Error('No checkout URL returned')
-      // #region agent log
-      fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'post-fix',hypothesisId:'C',location:'UpgradeModal.tsx:handleUpgrade',message:'checkout url received',data:{hasCheckoutUrl:!!url},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       window.location.href = url
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-      // #region agent log
-      fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'post-fix',hypothesisId:'E',location:'UpgradeModal.tsx:handleUpgrade',message:'checkout catch',data:{message,isInactivePrice:typeof message==='string'&&message.toLowerCase().includes('inactive')},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       setError(message)
       setLoading(false)
     }

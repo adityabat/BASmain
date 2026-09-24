@@ -15,6 +15,8 @@ interface UsageContextValue {
   transcriptLimit: number
   isUploadLimitReached: boolean
   isTranscriptLimitReached: boolean
+  cancelAtPeriodEnd: boolean
+  currentPeriodEnd: number | null
   refreshUsage: () => void
 }
 
@@ -26,6 +28,8 @@ const UsageContext = createContext<UsageContextValue>({
   transcriptLimit: FREE_TRANSCRIPT_LIMIT,
   isUploadLimitReached: false,
   isTranscriptLimitReached: false,
+  cancelAtPeriodEnd: false,
+  currentPeriodEnd: null,
   refreshUsage: () => {},
 })
 
@@ -34,9 +38,11 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
   const [plan, setPlan] = useState<Plan>('free')
   const [uploadCount, setUploadCount] = useState(0)
   const [transcriptCount, setTranscriptCount] = useState(0)
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false)
+  const [currentPeriodEnd, setCurrentPeriodEnd] = useState<number | null>(null)
 
   const fetchUsage = useCallback(async (userId: string) => {
-    const [planResult, uploadsResult, transcriptsResult] = await Promise.all([
+    const [planResult, uploadsResult, transcriptsResult, subResult] = await Promise.all([
       supabase
         .from('user_plans')
         .select('plan')
@@ -50,18 +56,23 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
         .from('transcript_history')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId),
+      supabase
+        .from('stripe_user_subscriptions')
+        .select('cancel_at_period_end, current_period_end')
+        .maybeSingle(),
     ])
 
     if (planResult.data) {
       setPlan(planResult.data.plan as Plan)
     } else {
-      // First sign-in — provision a free plan row
       await supabase.from('user_plans').insert({ user_id: userId, plan: 'free' })
       setPlan('free')
     }
 
     setUploadCount(uploadsResult.count ?? 0)
     setTranscriptCount(transcriptsResult.count ?? 0)
+    setCancelAtPeriodEnd(Boolean(subResult.data?.cancel_at_period_end))
+    setCurrentPeriodEnd(subResult.data?.current_period_end ?? null)
   }, [])
 
   const refreshUsage = useCallback(() => {
@@ -73,6 +84,8 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
       setPlan('free')
       setUploadCount(0)
       setTranscriptCount(0)
+      setCancelAtPeriodEnd(false)
+      setCurrentPeriodEnd(null)
       return
     }
 
@@ -80,11 +93,9 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
     const params = new URLSearchParams(window.location.search)
 
     if (params.get('upgrade') === 'success') {
-      // Remove the param from the URL without a page reload
       const clean = window.location.pathname + window.location.search.replace(/[?&]upgrade=success/, '').replace(/^&/, '?')
       window.history.replaceState(null, '', clean || window.location.pathname)
 
-      // Poll until the webhook has written the pro plan (up to ~8s)
       let attempts = 0
       const poll = async () => {
         const { data } = await supabase
@@ -113,12 +124,6 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
   const isUploadLimitReached = plan === 'free' && uploadCount >= FREE_UPLOAD_LIMIT
   const isTranscriptLimitReached = plan === 'free' && transcriptCount >= FREE_TRANSCRIPT_LIMIT
 
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7797/ingest/816c7850-d38c-4b2f-8aca-97d300bda943',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3a94c5'},body:JSON.stringify({sessionId:'3a94c5',runId:'free-limit-5',hypothesisId:'A',location:'UsageContext.tsx:limits',message:'free upload limit applied',data:{plan,uploadCount,uploadLimit:uploadLimit===Infinity?'inf':uploadLimit,freeUploadConst:FREE_UPLOAD_LIMIT,isUploadLimitReached,transcriptLimit:transcriptLimit===Infinity?'inf':transcriptLimit},timestamp:Date.now()})}).catch(()=>{});
-  }, [plan, uploadCount, uploadLimit, isUploadLimitReached, transcriptLimit])
-  // #endregion
-
   return (
     <UsageContext.Provider value={{
       plan,
@@ -128,6 +133,8 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
       transcriptLimit,
       isUploadLimitReached,
       isTranscriptLimitReached,
+      cancelAtPeriodEnd,
+      currentPeriodEnd,
       refreshUsage,
     }}>
       {children}

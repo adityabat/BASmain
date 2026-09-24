@@ -5,6 +5,7 @@ import { UploadHistory } from './components/UploadHistory'
 import { ChatWidget } from './components/ChatWidget'
 import { TranscriptExtractor } from './components/TranscriptExtractor'
 import { UpgradeModal } from './components/UpgradeModal'
+import { CancelSubscriptionModal } from './components/CancelSubscriptionModal'
 import { AuthPage } from './pages/AuthPage'
 import { LandingPage } from './pages/LandingPage'
 import { useAuth } from './context/AuthContext'
@@ -31,6 +32,7 @@ export default function App() {
     transcriptLimit,
     isUploadLimitReached,
     isTranscriptLimitReached,
+    cancelAtPeriodEnd,
     refreshUsage,
   } = useUsage()
   const [activeTab, setActiveTab] = useState<Tab>('chat')
@@ -38,6 +40,7 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false)
   const [historyTick, setHistoryTick] = useState(0)
   const [upgradeModal, setUpgradeModal] = useState<'upload' | 'transcript' | null>(null)
+  const [showManagePlan, setShowManagePlan] = useState(false)
   const [showAuth, setShowAuth] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup')
 
@@ -249,9 +252,14 @@ export default function App() {
             </div>
 
             {plan === 'pro' ? (
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-green-400 to-blue-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-sm">
-                &#9889; Pro
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowManagePlan(true)}
+                title="Manage subscription"
+                className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-green-400 to-blue-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-sm hover:opacity-90"
+              >
+                &#9889; {cancelAtPeriodEnd ? 'Pro · Cancels' : 'Pro'}
+              </button>
             ) : (
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-white/[0.08] border border-slate-200 dark:border-white/[0.1] px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Free
@@ -398,6 +406,9 @@ export default function App() {
 
       {upgradeModal && (
         <UpgradeModal type={upgradeModal} onClose={() => setUpgradeModal(null)} />
+      )}
+      {showManagePlan && (
+        <CancelSubscriptionModal onClose={() => setShowManagePlan(false)} />
       )}
     </div>
   )
