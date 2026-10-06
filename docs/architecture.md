@@ -10,18 +10,16 @@ This document describes how the Vite/React frontend, Supabase backend, n8n Cloud
 
 ## 1. Executive summary
 
-BAS Agentic is a **browser SPA** that authenticates users with **Supabase Auth**, stores usage and history in **Postgres**, bills through **Stripe Edge Functions**, and offloads all AI / YouTube work to **n8n Cloud webhooks**.
-
-Critical fact for anyone changing APIs:
+BAS Agentic is a **browser SPA** that authenticates users with **Supabase Auth**, stores usage and history in **Postgres**, bills through **Stripe Edge Functions**, and runs chat, uploads, and YouTube transcripts in the **`agent` Edge Function**.
 
 | Capability | Where it actually runs | This repo contains |
 |---|---|---|
-| YouTube transcript fetch | n8n workflow behind `POST /webhook/fetch` | Client POST + response parser only |
-| OpenAI (chat, embeddings, summarization) | n8n nodes (not in Git) | Client POST to chat/upload webhooks only |
-| File ingest / RAG documents | n8n workflow behind `POST /webhook/upload` | Multipart upload client only |
+| YouTube transcript fetch | `agent` function → RapidAPI | Client POST + response parser |
+| OpenAI (chat, embeddings) | `agent` function (`gpt-4o-mini`, `text-embedding-3-small`) | `supabase/functions/agent/` |
+| File ingest / RAG documents | `agent` function writes `documents` | Multipart upload client |
 | Auth, plans, history, billing | Supabase + Stripe functions in this repo | Full source |
 
-There is **no** `openai` SDK, **no** YouTube Data API key, and **no** n8n workflow JSON in this repository. Changing models, prompts, or transcript providers is an **n8n editor** change, plus optional contract updates in the React files listed in [code-map.md](./code-map.md).
+OpenAI and RapidAPI keys stay in Edge Function secrets (`OPENAI_API_KEY`, `RAPIDAPI_KEY`). They are not in the Vite client.
 
 ---
 
@@ -36,22 +34,21 @@ There is **no** `openai` SDK, **no** YouTube Data API key, and **no** n8n workfl
                │ HTTPS JSON / FormData         │ supabase-js
                ▼                               ▼
 ┌──────────────────────────────┐   ┌──────────────────────────────┐
-│ n8n Cloud                    │   │ Supabase project             │
-│ m-objectsai.app.n8n.cloud    │   │ tpxouggkkyljrmmhdlbr         │
+│ Supabase Edge Function       │   │ Supabase project             │
+│ functions/v1/agent           │   │ tpxouggkkyljrmmhdlbr         │
 │                              │   │                              │
-│ /webhook/Chat   → OpenAI     │   │ Auth (PKCE)                  │
-│ /webhook/fetch  → YouTube    │   │ Postgres + RLS               │
-│                   transcript │   │ Storage (none used by SPA)   │
-│                   (+ optional│   │ Edge Functions:              │
-│                    OpenAI)   │   │   stripe-checkout            │
-│ /webhook/upload → parse file │   │   stripe-cancel              │
-│                   embed via  │   │   stripe-webhook             │
-│                   OpenAI     │   └──────────────┬───────────────┘
-│                   write      │                  │
-│                   documents /│                  ▼
-│                   n8n_chat_  │   ┌──────────────────────────────┐
-│                   histories  │   │ Stripe                       │
-└──────────────────────────────┘   │ Checkout + subscriptions     │
+│ action=chat → OpenAI + RAG   │   │ Auth (PKCE)                  │
+│ action=transcript → RapidAPI │   │ Postgres + RLS               │
+│ multipart upload → extract   │   │ Edge Functions:              │
+│   PDF/CSV/TXT, embed, store  │   │   agent                      │
+│ writes documents and         │   │   stripe-checkout            │
+│ n8n_chat_histories           │   │   stripe-cancel              │
+│                              │   │   stripe-webhook             │
+└──────────────────────────────┘   └──────────────┬───────────────┘
+                                                  ▼
+                                   ┌──────────────────────────────┐
+                                   │ Stripe                       │
+                                   │ Checkout + subscriptions     │
                                    └──────────────────────────────┘
 ```
 
@@ -71,23 +68,17 @@ Providers (outer → inner) from `src/main.tsx`:
 
 `ThemeProvider` → `AuthProvider` → `UsageProvider` → `App`
 
-### 3.2 Integration (n8n Cloud)
+### 3.2 Integration (Supabase `agent` function)
 
-Three production webhook URLs are **hardcoded** in the SPA:
+The SPA calls one authenticated function, `POST /functions/v1/agent`:
 
-| Workflow purpose | Path | Called from |
+| Purpose | Request | Called from |
 |---|---|---|
-| Chat assistant (OpenAI) | `https://m-objectsai.app.n8n.cloud/webhook/Chat` | `src/components/ChatWidget.tsx` |
-| YouTube transcript | `https://m-objectsai.app.n8n.cloud/webhook/fetch` | `src/components/TranscriptExtractor.tsx` |
-| Document upload / ingest | `https://m-objectsai.app.n8n.cloud/webhook/upload` | `src/uploadService.ts` |
+| Chat assistant | JSON `{ action: "chat", chatInput, sessionId, userId }` | `src/components/ChatWidget.tsx` |
+| YouTube transcript | JSON `{ action: "transcript", userId, videoUrl }` | `src/components/TranscriptExtractor.tsx` |
+| Document upload | multipart field `data` plus `fileName`, `fileType`, `userId` | `src/uploadService.ts` |
 
-n8n is expected to hold:
-
-- OpenAI API key (or compatible provider credentials)
-- YouTube transcript retrieval (n8n YouTube / community transcript node, or HTTP to a transcript API)
-- Supabase credentials (service role) to write `documents`, `n8n_chat_histories`, and possibly `transcripts`
-
-Those credentials must **never** be added to the Vite client.
+The function holds `OPENAI_API_KEY` and `RAPIDAPI_KEY`, and uses the service role to write `documents`, `n8n_chat_histories`, and `transcripts`. Those secrets must **never** be added to the Vite client. The caller must send the signed-in user's access token.
 
 ### 3.3 Data and identity (Supabase)
 
@@ -124,10 +115,10 @@ Secrets live in Edge Function env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
 User pastes URL in Transcripts tab
   → App checks isTranscriptLimitReached (UsageContext)
   → TranscriptExtractor validates youtube.com / youtu.be
-  → POST { userId, videoUrl } → n8n /webhook/fetch  (60s timeout)
-  → n8n fetches captions (YouTube transcript API / node)
-  → n8n optionally calls OpenAI (summarize / clean) — not visible here
-  → HTTP body returns pageContent / text / JSON array / concatenated JSON blobs
+  → POST { action: "transcript", userId, videoUrl } → agent function (60s timeout)
+  → RapidAPI youtube-transcript3 returns the caption text
+  → function upserts public.transcripts and embeds chunks into documents
+  → HTTP body returns pageContent / text
   → parseTranscript() normalizes to a string
   → INSERT transcript_history
   → refreshUsage() increments free-plan counter
@@ -140,9 +131,9 @@ User pastes URL in Transcripts tab
 ```
 User sends message
   → sessionId from localStorage `chat_session_id` (24-char)
-  → POST { chatInput, sessionId, userId } → n8n /webhook/Chat
-  → n8n LangChain / OpenAI agent, likely Postgres chat memory + match_documents
-  → JSON reply with output | message | text | response
+  → POST { action: "chat", chatInput, sessionId, userId } → agent function
+  → gpt-4o-mini with match_documents (filtered by userId) and n8n_chat_histories
+  → JSON reply with output
   → ChatWidget renders markdown
 ```
 
@@ -154,8 +145,8 @@ The SPA does **not** stream tokens. Chat is not persisted in `upload_history`; h
 DropZone accepts .txt / .pdf / .csv
   → App enforces free upload limit
   → uploadFileToWebhook(): FormData fields data, fileName, fileType, fileSize, userId, session
-  → POST multipart → n8n /webhook/upload
-  → n8n parses file, likely embeddings (OpenAI) into `documents`
+  → POST multipart → agent function
+  → function extracts PDF, CSV, or text, embeds with OpenAI, inserts `documents`
   → SPA INSERT upload_history with webhook_response JSON string
 ```
 
@@ -166,6 +157,7 @@ signUp / signInWithPassword / resetPasswordForEmail  (AuthPage)
   → session in AuthContext
   → UsageProvider loads user_plans, counts rows in upload_history and transcript_history
   → Free: 5 uploads, 3 transcripts  (UsageContext constants; migration comment still says 3 uploads)
+  → adityaba70@gmail.com is exempt from those caps; every other account, including new signups, is not
   → Pro: unlimited until Stripe subscription.deleted reverts plan
 ```
 

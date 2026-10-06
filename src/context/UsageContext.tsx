@@ -5,6 +5,13 @@ import { useAuth } from './AuthContext'
 export const FREE_UPLOAD_LIMIT = 5
 export const FREE_TRANSCRIPT_LIMIT = 3
 
+/** This account is unlimited. Every other account, including new signups, stays on the free caps. */
+const UNLIMITED_EMAIL = 'adityaba70@gmail.com'
+
+function isUnlimitedAccount(email: string | undefined): boolean {
+  return email?.toLowerCase() === UNLIMITED_EMAIL
+}
+
 export type Plan = 'free' | 'pro'
 
 interface UsageContextValue {
@@ -119,10 +126,11 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session?.user.id, fetchUsage])
 
-  const uploadLimit = plan === 'pro' ? Infinity : FREE_UPLOAD_LIMIT
-  const transcriptLimit = plan === 'pro' ? Infinity : FREE_TRANSCRIPT_LIMIT
-  const isUploadLimitReached = plan === 'free' && uploadCount >= FREE_UPLOAD_LIMIT
-  const isTranscriptLimitReached = plan === 'free' && transcriptCount >= FREE_TRANSCRIPT_LIMIT
+  const unlimited = isUnlimitedAccount(session?.user.email)
+  const uploadLimit = plan === 'pro' || unlimited ? Infinity : FREE_UPLOAD_LIMIT
+  const transcriptLimit = plan === 'pro' || unlimited ? Infinity : FREE_TRANSCRIPT_LIMIT
+  const isUploadLimitReached = !unlimited && plan === 'free' && uploadCount >= FREE_UPLOAD_LIMIT
+  const isTranscriptLimitReached = !unlimited && plan === 'free' && transcriptCount >= FREE_TRANSCRIPT_LIMIT
 
   return (
     <UsageContext.Provider value={{

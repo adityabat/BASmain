@@ -121,9 +121,10 @@ project/
 
 | File | Responsibility | External I/O |
 |---|---|---|
-| `src/components/ChatWidget.tsx` | Chat UI, session id, markdown replies | n8n `/webhook/Chat` |
-| `src/components/TranscriptExtractor.tsx` | URL form, parser, copy transcript | n8n `/webhook/fetch`; `transcript_history` |
-| `src/uploadService.ts` | Multipart upload + progress | n8n `/webhook/upload` |
+| `src/components/ChatWidget.tsx` | Chat UI, session id, markdown replies | `agent` action `chat` |
+| `src/components/TranscriptExtractor.tsx` | URL form, parser, copy transcript | `agent` action `transcript`; `transcript_history` |
+| `src/uploadService.ts` | Multipart upload + progress | `agent` multipart upload |
+| `src/agentApi.ts` | Auth headers and JSON POST to the agent function | `functions/v1/agent` |
 
 ### Auth, usage, billing UI
 

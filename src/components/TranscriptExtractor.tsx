@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import axios from 'axios'
+import { postAgentJson } from '../agentApi'
 import { supabase } from '../supabase'
-
-const TRANSCRIPT_WEBHOOK = 'https://m-objectsai.app.n8n.cloud/webhook/fetch'
 
 function isValidYouTubeUrl(url: string): boolean {
   return /^https?:\/\/(www\.)?(youtube\.com\/watch\?.*v=|youtu\.be\/)[\w-]+/.test(url)
@@ -72,19 +70,13 @@ export function TranscriptExtractor({ userId, isLimitReached, onLimitReached, on
     let resultError: string | null = null
 
     try {
-      const response = await axios.post(
-        TRANSCRIPT_WEBHOOK,
-        { userId, videoUrl: trimmed },
-        { timeout: 60000, headers: { 'Content-Type': 'application/json' } }
-      )
-      resultTranscript = parseTranscript(response.data)
+      const data = await postAgentJson({ action: 'transcript', userId, videoUrl: trimmed })
+      resultTranscript = parseTranscript(data)
       setTranscript(resultTranscript)
       setStatus('success')
     } catch (err: unknown) {
       resultStatus = 'error'
-      if (axios.isAxiosError(err) && err.response?.data) {
-        resultError = JSON.stringify(err.response.data)
-      } else if (err && typeof err === 'object' && 'message' in err) {
+      if (err && typeof err === 'object' && 'message' in err) {
         resultError = (err as { message: string }).message
       } else {
         resultError = 'Failed to fetch transcript. Please try again.'

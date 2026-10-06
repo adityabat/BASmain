@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-
-const CHAT_WEBHOOK_URL = 'https://m-objectsai.app.n8n.cloud/webhook/Chat'
+import { postAgentJson } from '../agentApi'
+import { downloadChatResponse, downloadReport } from '../chatDocument'
+import { readStoredMessages, writeStoredMessages, type StoredMessage } from '../chatStorage'
 
 function getSessionId(): string {
   const stored = localStorage.getItem('chat_session_id')
@@ -12,26 +13,32 @@ function getSessionId(): string {
   return id
 }
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  text: string
-}
+type Message = StoredMessage
 
 interface ChatWidgetProps {
   userId: string
+  visible: boolean
 }
 
-export function ChatWidget({ userId }: ChatWidgetProps) {
-  const [messages, setMessages] = useState<Message[]>([])
+export function ChatWidget({ userId, visible }: ChatWidgetProps) {
+  const [messages, setMessages] = useState<Message[]>(() => readStoredMessages(userId))
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [saveErrorId, setSaveErrorId] = useState<string | null>(null)
+  const [reportKind, setReportKind] = useState<'chat' | 'executive' | 'business' | null>(null)
+  const [reportError, setReportError] = useState<string | null>(null)
   const [sessionId] = useState<string>(getSessionId)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    writeStoredMessages(userId, messages)
+  }, [messages, userId])
+
+  useEffect(() => {
+    if (!visible) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, visible])
 
   async function sendMessage() {
     const text = input.trim()
@@ -42,18 +49,11 @@ export function ChatWidget({ userId }: ChatWidgetProps) {
     setLoading(true)
 
     try {
-      const response = await fetch(CHAT_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatInput: text, sessionId, userId }),
-      })
-
-      if (!response.ok) throw new Error(`Request failed (${response.status})`)
-
-      const data = await response.json()
-      const payload = Array.isArray(data) ? data[0] : data
-      const reply: string =
-        payload?.output ?? payload?.message ?? payload?.text ?? payload?.response ?? JSON.stringify(payload)
+      const data = await postAgentJson({ action: 'chat', chatInput: text, sessionId, userId })
+      const payload = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+      const reply = [payload?.output, payload?.message, payload?.text, payload?.response]
+        .find((value): value is string => typeof value === 'string')
+        ?? JSON.stringify(payload)
 
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', text: reply }])
     } catch (err: unknown) {
@@ -64,6 +64,35 @@ export function ChatWidget({ userId }: ChatWidgetProps) {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const canReport = messages.some((item) => item.role === 'assistant') && !reportKind
+
+  function transcriptOfChat() {
+    return messages.map((item) => `## ${item.role === 'user' ? 'You' : 'Assistant'}\n${item.text}`).join('\n\n')
+  }
+
+  async function createReport(kind: 'chat' | 'executive' | 'business') {
+    if (!canReport) return
+    setReportKind(kind)
+    setReportError(null)
+    const transcript = transcriptOfChat()
+    try {
+      if (kind === 'chat') {
+        await downloadReport('Chat Report', transcript, 'chat-report.docx')
+        return
+      }
+      const data = await postAgentJson({ action: 'report', reportType: kind, transcript })
+      const payload = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+      const text = typeof payload?.output === 'string' ? payload.output : ''
+      if (!text) throw new Error('The report came back empty.')
+      const title = kind === 'executive' ? 'Executive Report' : 'Business Report'
+      await downloadReport(title, text, `${kind}-report.docx`)
+    } catch (err: unknown) {
+      setReportError(err instanceof Error ? err.message : 'Could not create that report.')
+    } finally {
+      setReportKind(null)
     }
   }
 
@@ -97,8 +126,8 @@ export function ChatWidget({ userId }: ChatWidgetProps) {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {messages.map((msg, index) => (
+          <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div
               className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words ${
                 msg.role === 'user'
@@ -126,6 +155,24 @@ export function ChatWidget({ userId }: ChatWidgetProps) {
                 msg.text
               )}
             </div>
+            {msg.role === 'assistant' && (
+              <button
+                type="button"
+                disabled={savingId === msg.id}
+                onClick={() => {
+                  const question = [...messages.slice(0, index)].reverse().find((item) => item.role === 'user')?.text
+                  setSavingId(msg.id)
+                  setSaveErrorId(null)
+                  downloadChatResponse(question, msg.text)
+                    .then(() => setSaveErrorId((current) => (current === msg.id ? null : current)))
+                    .catch(() => setSaveErrorId(msg.id))
+                    .finally(() => setSavingId((current) => (current === msg.id ? null : current)))
+                }}
+                className="mt-1 ml-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 disabled:opacity-50"
+              >
+                {savingId === msg.id ? 'Saving…' : saveErrorId === msg.id ? 'Try Word again' : 'Word'}
+              </button>
+            )}
           </div>
         ))}
 
@@ -170,6 +217,26 @@ export function ChatWidget({ userId }: ChatWidgetProps) {
         <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1.5 text-center">
           Enter to send &middot; Shift+Enter for new line
         </p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {([
+            ['chat', 'Chat Report'],
+            ['executive', 'Executive Report'],
+            ['business', 'Business Report'],
+          ] as const).map(([kind, label]) => (
+            <button
+              key={kind}
+              type="button"
+              disabled={!canReport}
+              onClick={() => createReport(kind)}
+              className="rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] px-2 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-green-400 dark:hover:border-green-500/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {reportKind === kind ? 'Preparing…' : label}
+            </button>
+          ))}
+        </div>
+        {reportError && (
+          <p className="mt-1.5 text-center text-[11px] text-red-500">{reportError}</p>
+        )}
       </div>
     </div>
   )

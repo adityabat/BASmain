@@ -61,11 +61,15 @@ Store in n8n credential manager:
 
 ---
 
-## 3. HTTP contracts (SPA ↔ n8n)
+## 3. HTTP contracts (SPA ↔ `agent` function)
+
+Base URL: `https://tpxouggkkyljrmmhdlbr.supabase.co/functions/v1/agent`
+
+Every call sends `Authorization: Bearer <user access token>` and the anon `apikey`. The function rejects a `userId` that does not match that token.
 
 Keep these stable when you edit workflows. If you change a field name, update the corresponding TypeScript file in the same PR.
 
-### 3.1 Chat — `POST /webhook/Chat`
+### 3.1 Chat — `POST /functions/v1/agent` `{ "action": "chat" }`
 
 **Request** (`ChatWidget.tsx`):
 
@@ -85,7 +89,7 @@ Keep these stable when you edit workflows. If you change a field name, update th
 
 **n8n mapping tips:** Webhook node JSON body; LangChain agent `chatInput`; Postgres Chat Memory keyed by `sessionId` (and preferably `userId` so users cannot collide).
 
-### 3.2 YouTube transcript — `POST /webhook/fetch`
+### 3.2 YouTube transcript — `POST /functions/v1/agent` `{ "action": "transcript" }`
 
 **Request** (`TranscriptExtractor.tsx`):
 
@@ -122,7 +126,7 @@ supabase.from('transcript_history').insert({
 })
 ```
 
-### 3.3 Upload — `POST /webhook/upload`
+### 3.3 Upload — `POST /functions/v1/agent` (multipart)
 
 **Request** (`uploadService.ts`) `multipart/form-data`:
 
@@ -240,6 +244,7 @@ Defined in `src/context/UsageContext.tsx`:
 | Plan | Uploads | Transcripts | Chat |
 |---|---|---|---|
 | free | 5 (`FREE_UPLOAD_LIMIT`) | 3 (`FREE_TRANSCRIPT_LIMIT`) | unlimited in UI |
+| adityaba70@gmail.com | unlimited | unlimited | unlimited |
 | pro | Infinity | Infinity | unlimited |
 
 Counts = **total historical rows**, not calendar-month windows, despite landing-page copy saying “per month”. Changing to monthly requires a `created_at` filter in `fetchUsage`.

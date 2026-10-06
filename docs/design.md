@@ -94,9 +94,9 @@ Do not rename these in n8n without a frontend change:
 
 ---
 
-## 3. Recommended n8n workflow designs
+## 3. Agent function (replaces the n8n graphs)
 
-These are the **intended** graphs. Confirm in the n8n UI; they are not versioned here.
+Chat, upload, and transcript now run in `supabase/functions/agent`. The notes below describe the behaviour that function preserves. Model and prompt changes belong in that function, not in n8n.
 
 ### 3.1 Chat (`/webhook/Chat`) — OpenAI
 

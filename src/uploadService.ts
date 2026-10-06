@@ -1,6 +1,5 @@
 import axios from 'axios'
-
-const WEBHOOK_URL = 'https://m-objectsai.app.n8n.cloud/webhook/upload'
+import { AGENT_URL, agentAuthHeaders } from './agentApi'
 
 function getUploadSessionId(): string {
   const stored = localStorage.getItem('upload_session_id')
@@ -19,6 +18,7 @@ export async function uploadFileToWebhook(
   const session = getUploadSessionId()
 
   const formData = new FormData()
+  formData.append('action', 'upload')
   formData.append('data', file, file.name)
   formData.append('fileName', file.name)
   formData.append('fileType', file.type)
@@ -26,16 +26,24 @@ export async function uploadFileToWebhook(
   formData.append('userId', userId)
   formData.append('session', session)
 
-  const response = await axios.post(WEBHOOK_URL, formData, {
-    timeout: 60000,
-    onUploadProgress(progressEvent) {
-      if (progressEvent.total) {
-        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-        onProgress(Math.min(percent, 99))
-      }
-    },
-  })
-
-  onProgress(100)
-  return JSON.stringify(response.data)
+  try {
+    const response = await axios.post(AGENT_URL, formData, {
+      timeout: 60000,
+      headers: await agentAuthHeaders(),
+      onUploadProgress(progressEvent) {
+        if (progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          onProgress(Math.min(percent, 99))
+        }
+      },
+    })
+    onProgress(100)
+    return JSON.stringify(response.data)
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const data = err.response?.data as { error?: unknown } | undefined
+      if (typeof data?.error === 'string') throw new Error(data.error)
+    }
+    throw err
+  }
 }

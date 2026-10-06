@@ -220,11 +220,11 @@ export default function App() {
               <p className={`text-sm font-bold leading-tight ${
                 isUploadLimitReached
                   ? 'text-red-500 dark:text-red-400'
-                  : uploadCount >= uploadLimit - 1 && plan === 'free'
+                  : Number.isFinite(uploadLimit) && uploadCount >= uploadLimit - 1 && plan === 'free'
                   ? 'text-green-500 dark:text-green-400'
                   : 'text-slate-900 dark:text-white'
               }`}>
-                {uploadCount} / {plan === 'pro' ? '∞' : uploadLimit}
+                {uploadCount} / {Number.isFinite(uploadLimit) ? uploadLimit : '∞'}
               </p>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-white/[0.08]" />
@@ -233,11 +233,11 @@ export default function App() {
               <p className={`text-sm font-bold leading-tight ${
                 isTranscriptLimitReached
                   ? 'text-red-500 dark:text-red-400'
-                  : transcriptCount >= transcriptLimit - 1 && plan === 'free'
+                  : Number.isFinite(transcriptLimit) && transcriptCount >= transcriptLimit - 1 && plan === 'free'
                   ? 'text-green-500 dark:text-green-400'
                   : 'text-slate-900 dark:text-white'
               }`}>
-                {transcriptCount} / {plan === 'pro' ? '∞' : transcriptLimit}
+                {transcriptCount} / {Number.isFinite(transcriptLimit) ? transcriptLimit : '∞'}
               </p>
             </div>
           </div>
@@ -321,9 +321,9 @@ export default function App() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
 
-        {activeTab === 'chat' && (
-          <ChatWidget userId={session.user.id} />
-        )}
+        <div hidden={activeTab !== 'chat'}>
+          <ChatWidget key={session.user.id} userId={session.user.id} visible={activeTab === 'chat'} />
+        </div>
 
         {activeTab === 'transcripts' && (
           <TranscriptExtractor
