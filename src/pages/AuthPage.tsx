@@ -172,7 +172,7 @@ export function AuthPage({ initialMode = 'login', onBack }: AuthPageProps) {
             <img src="/images/Icon_2.png" alt="BAS Agentic logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">BAS Agentic</h1>
-          <p className="text-sm text-slate-400 text-center">Your intelligent business agent companion</p>
+          <p className="text-sm text-slate-400 text-center">Business Application Solution with Agentic AI.</p>
         </div>
 
         {onBack && (

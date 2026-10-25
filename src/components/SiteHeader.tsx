@@ -34,7 +34,12 @@ export function SiteHeader({ activeProductId, onSelectProduct, onGoHome, onSignI
           <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 shrink-0">
             <img src="/images/Icon_2.png" alt="BAS Agentic logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-lg tracking-tight truncate text-[#0e1c4a] dark:text-white">BAS Agentic</span>
+          <span className="min-w-0">
+            <span className="block font-bold text-lg tracking-tight leading-tight truncate text-[#0e1c4a] dark:text-white">BAS Agentic</span>
+            <span className="hidden sm:block text-[11px] font-medium leading-tight text-[#5b6e8c] dark:text-slate-400 mt-0.5">
+              Business Application Solution with Agentic AI.
+            </span>
+          </span>
         </button>
 
         <nav className="hidden xl:flex items-center gap-7 h-full">

@@ -208,8 +208,10 @@ export default function App() {
               <img src="/images/Icon_2.png" alt="BAS Agentic logo" className="w-full h-full object-cover" />
             </div>
             <div className="min-w-0">
-              <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">BAS Agentic</span>
-              <span className="hidden lg:inline text-xs text-slate-400 dark:text-slate-500 ml-2 font-normal">Agents for Business, Applications and Solutions.</span>
+              <span className="block font-bold text-slate-900 dark:text-white text-base tracking-tight leading-tight">BAS Agentic</span>
+              <span className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-tight mt-0.5">
+                Business Application Solution with Agentic AI.
+              </span>
             </div>
           </div>
 
