@@ -20,26 +20,33 @@ const toneClass: Record<ProductTone, { card: string; icon: string; link: string 
     icon: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
     link: 'text-violet-600 dark:text-violet-300',
   },
+  slate: {
+    card: 'from-white to-slate-50/90 border-slate-200/80 dark:from-[#121a2e] dark:to-[#171e2e] dark:border-white/10',
+    icon: 'bg-slate-200 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200',
+    link: 'text-slate-700 dark:text-slate-200',
+  },
 }
 
 export function DigitalEmployees({ onSelect }: DigitalEmployeesProps) {
   return (
     <section id="products" className="scroll-mt-20 bg-white dark:bg-[#0b1220] border-y border-slate-100 dark:border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 lg:gap-6 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-6 items-start">
           <div className="lg:pr-4 flex flex-col justify-center">
-            <p className="text-xs font-semibold tracking-[0.16em] text-blue-600 uppercase">Our digital employees</p>
+            <p className="text-xs font-semibold tracking-[0.16em] text-blue-600 uppercase">Our products</p>
             <h2 className="mt-3 text-3xl sm:text-[2rem] font-extrabold tracking-tight leading-tight text-[#0c2348] dark:text-white">
               Purpose-built AI agents for real-world outcomes.
             </h2>
             <p className="mt-4 text-sm sm:text-base text-[#5b6e8c] dark:text-slate-400 leading-relaxed">
-              Choose from our growing library of digital employees or create a custom one for your business.
+              Choose from our growing library of products or create a custom one for your business.
             </p>
           </div>
 
-          {workflowProducts.map((product) => (
-            <EmployeeCard key={product.id} product={product} onSelect={onSelect} />
-          ))}
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {workflowProducts.map((product) => (
+              <EmployeeCard key={product.id} product={product} onSelect={onSelect} />
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -72,6 +79,13 @@ function EmployeeCard({ product, onSelect }: { product: AgenticProduct; onSelect
 }
 
 function ProductIcon({ id }: { id: string }) {
+  if (id === 'resguard') {
+    return (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    )
+  }
   if (id === 'agents-edu') {
     return (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

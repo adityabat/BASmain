@@ -49,7 +49,7 @@ export function SiteHeader({ activeProductId, onSelectProduct, onGoHome, onSignI
           >
             Home
           </button>
-          <NavMenu label="Digital Employees" active={Boolean(activeProductId)}>
+          <NavMenu label="Products" active={Boolean(activeProductId)}>
             {workflowProducts.map((product) => (
               <MenuItem
                 key={product.id}
@@ -126,7 +126,7 @@ export function SiteHeader({ activeProductId, onSelectProduct, onGoHome, onSignI
       {mobileMenuOpen && (
         <div className="xl:hidden border-t border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#070d1a] px-4 py-4 flex flex-col gap-1">
           <MobileLink label="Home" onClick={() => go()} />
-          <p className="pt-2 text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Digital Employees</p>
+          <p className="pt-2 text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Products</p>
           {workflowProducts.map((product) => (
             <button key={product.id} type="button" onClick={() => selectProduct(product.id)} className="text-sm text-[#243656] dark:text-slate-300 py-1.5 text-left pl-3">
               {product.title}

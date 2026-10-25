@@ -21,7 +21,7 @@ export function LandingHero() {
               href="#products"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0e1c4a] hover:bg-[#16306b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition-colors"
             >
-              Explore Our Digital Employees
+              Explore Our Products
               <ArrowIcon />
             </a>
             <a

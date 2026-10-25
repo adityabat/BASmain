@@ -50,7 +50,7 @@ export function LandingFooter({ onGetStarted, onSignIn }: LandingFooterProps) {
           </div>
           <div className="flex flex-col gap-2">
             <a href="#features" className="text-blue-100 hover:text-white">Solutions</a>
-            <a href="#products" className="text-blue-100 hover:text-white">Digital Employees</a>
+            <a href="#products" className="text-blue-100 hover:text-white">Products</a>
             <a href="#technology" className="text-blue-100 hover:text-white">Technology</a>
             <a href="#faq" className="text-blue-100 hover:text-white">FAQ</a>
           </div>
