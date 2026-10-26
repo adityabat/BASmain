@@ -2,7 +2,7 @@ export function LandingHero() {
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_78%_42%,rgba(147,197,253,0.45),transparent_46%),radial-gradient(ellipse_at_12%_80%,rgba(196,181,253,0.28),transparent_42%),linear-gradient(180deg,#f8fbff_0%,#f3f6fc_100%)] dark:bg-[radial-gradient(ellipse_at_78%_40%,rgba(37,99,235,0.22),transparent_46%),linear-gradient(180deg,#070d1a_0%,#0b1224_100%)]" />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-20 sm:pb-24 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-6 items-center">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-20 sm:pb-24">
         <div className="max-w-xl">
           <p className="text-xs sm:text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">
             Building AI-powered digital employees
@@ -31,15 +31,6 @@ export function LandingHero() {
               Talk to Us
             </a>
           </div>
-        </div>
-
-        <div className="relative flex justify-center lg:justify-end">
-          <div className="pointer-events-none absolute inset-8 rounded-full bg-sky-200/50 blur-3xl dark:bg-blue-500/20" />
-          <img
-            src="/images/hero-agent.png"
-            alt="Digital employee that learns, analyses, decides, and executes"
-            className="relative w-full max-w-[560px] h-auto select-none [mask-image:linear-gradient(to_right,transparent,black_7%,black_93%,transparent),linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] [mask-composite:intersect] [-webkit-mask-composite:destination-in]"
-          />
         </div>
       </div>
     </section>

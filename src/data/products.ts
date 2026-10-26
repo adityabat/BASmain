@@ -15,7 +15,7 @@ export type AgenticProduct = {
 export const workflowProducts: AgenticProduct[] = [
   {
     id: 'resguard',
-    title: 'RESGUARD',
+    title: 'BAS ResGuard',
     category: 'AI governance',
     industry: 'Financial services',
     tone: 'slate',
